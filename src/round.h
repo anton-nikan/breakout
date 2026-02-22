@@ -1,0 +1,127 @@
+#pragma once
+
+#include <list>
+#include <optional>
+#include <sdk/window.h>
+#include <sdk/input.h>
+#include "settings.h"
+#include "levels.h"
+#include "grid.h"
+#include "paddle.h"
+#include "ball.h"
+
+namespace game {
+	class Round {
+		SDK::Window& mWindow;
+
+		Grid& mGrid;
+		std::list<PaddleViewController> mPaddles;
+		std::list<BallView> mBalls;
+		std::list<StuckBallController> mStuckControllers;
+		std::list<PlayingBallController> mPlayingControllers;
+
+		using ScoreCallback = std::function<void(levels::BrickType)>;
+		ScoreCallback mScoreCallback;
+
+		void updateActors() {
+			for (auto& paddle : mPaddles) {
+				paddle.update();
+			}
+
+			for (auto& controller : mStuckControllers) {
+				controller.update();
+			}
+
+			for (auto& controller : mPlayingControllers) {
+				controller.update();
+			}
+		}
+
+		void handleInput() {
+			if (!mStuckControllers.empty()) {
+				if (SDK::isButtonPressed(SDK::Button::Fire)) {
+					for (auto& stuckCtrl : mStuckControllers) {
+						mPlayingControllers.emplace_back(stuckCtrl.getView(),
+							stuckCtrl.getPosition(),
+							Vector{ 0.0f, -settings::BallSpeedNormal });
+					}
+					mStuckControllers.clear();
+				}
+			}
+		}
+
+		void processCollisions() {
+			auto it = std::begin(mPlayingControllers);
+			while (it != std::end(mPlayingControllers)) {
+				auto& ball = *it;
+				Segment ballPath = ball.getLastMotionPath();
+
+				// 0. Simple loss check
+				if (ball.below(settings::GameAreaBottom)) {
+					mBalls.remove_if(
+						[&](const BallView& bv) { return &bv == &it->getView(); });
+					it = mPlayingControllers.erase(it);
+					continue;
+				}
+
+				// 1. Ball-Paddle collision
+				if (ball.below(settings::PaddleRoundStartY)) {
+					for (const auto& paddle : mPaddles) {
+						const Rect paddleRect = paddle.getRect();
+						if (ball.inside(paddleRect)) {
+							ball.reflectRound(paddleRect);
+						}
+					}
+				}
+
+				// 2. Ball-Grid collision
+				// NOTE: allowing only one hit per frame
+				std::optional<Brick> hitBrick = mGrid.findBrick(ballPath.ending);
+				if (hitBrick) {
+					mScoreCallback(hitBrick->type);
+					ball.reflect(hitBrick->bounds);
+					mGrid.removeBrick(*hitBrick);
+				}
+
+				// 3. Ball-Wall collision
+				const Rect gameArea{ .left = settings::GameAreaLeft,
+					.top = settings::GameAreaTop,
+					.right = settings::GameAreaRight,
+					.bottom = settings::GameAreaBottom };
+				ball.reflect(gameArea);
+
+				++it;
+			}
+		}
+	public:
+		Round(SDK::Window& wnd, Grid& grid, ScoreCallback scoreCallback) :
+				mWindow{ wnd }, mGrid{ grid }, mScoreCallback{ scoreCallback } {
+			auto& paddle = mPaddles.emplace_back(mWindow, settings::PaddleSizeNormal,
+				Vector{ settings::PaddleRoundStartX, settings::PaddleRoundStartY });
+
+			mBalls.emplace_back(mWindow);
+			mStuckControllers.emplace_back(mBalls.front(), [&]() {
+				auto pos = paddle.getPosition();
+				return Vector{ pos.x, pos.y - settings::BallRadius };
+			});
+		}
+
+		enum class UpdateResult { Continue,
+			Completed,
+			Failed };
+		UpdateResult update() {
+			updateActors();
+			handleInput();
+			processCollisions();
+
+			// Round outcome
+			if (mGrid.empty()) {
+				return UpdateResult::Completed;
+			}
+			if (mBalls.empty()) {
+				return UpdateResult::Failed;
+			}
+			return UpdateResult::Continue;
+		}
+	};
+}
