@@ -1,0 +1,47 @@
+#pragma once
+
+#include <math.h>
+
+Point: @struct type = {
+	x: int;
+	y: int;
+}
+
+Vector: @struct type = {
+	x: float;
+	y: float;
+}
+
+Segment: @struct type = {
+	origin: Vector;
+	ending: Vector;
+}
+
+Rect: @struct type = {
+	left: float;
+	top: float;
+	right: float;
+	bottom: float;
+
+    operator<=>:(
+        in this, 
+        in that, 
+    ) -> move std::strong_ordering;
+}
+
+sqrDist: (a: Vector, b: Vector) -> float = {
+	return a.x * b.x + a.y * b.y;
+}
+
+length: (v: Vector) -> float = {
+	return sqrtf(v.x * v.x + v.y * v.y);
+}
+
+normalize: (v: Vector) -> Vector = {
+	len := length(v);
+	return Vector(v.x / len, v.y / len);
+}
+
+dotProduct: (a: Vector, b: Vector) -> float = {
+	return a.x * b.x + a.y * b.y;
+}

@@ -15,7 +15,7 @@ namespace game {
 		levels::BrickType type = levels::BrickType::Empty;
 		SDK::SpriteID spriteID = SDK::InvalidSprite;
 
-		bool operator== (const Brick& b) const {
+		bool operator == (const Brick& b) const {
 			return b.type == type && b.bounds == bounds && b.spriteID == spriteID;
 		}
 	};
@@ -33,31 +33,34 @@ namespace game {
 			return { index / gridWidth, index % gridWidth };
 		}
 	public:
-		Grid(SDK::Window& wnd, const levels::GridDataType& level) : mWindow{ wnd } {
+		Grid(SDK::Window& wnd, const levels::GridDataType& level) :
+			mWindow{ wnd } {
 			for (int index = 0; index < level.size(); ++index) {
 				levels::BrickType bt = level[index];
-				if (bt == levels::BrickType::Empty) {
+				if (bt == levels::BrickType::Empty)
 					continue;
-				}
 
 				const auto [i, j] = indexToGrid(index, settings::GridWidth);
-				const float x = static_cast<float>(
-					settings::GridLeft + settings::BrickWidth * j);
-				const float y = static_cast<float>(
-					settings::GridTop + settings::BrickHeight * i);
+				const float x = static_cast<float>(settings::GridLeft + settings::BrickWidth * j);
+				const float y = static_cast<float>(settings::GridTop + settings::BrickHeight * i);
 
-				mBricks.emplace_back(Brick{
-					Rect{ x, y, x + settings::BrickWidth, y + settings::BrickHeight },
-					bt,
-					mWindow.createSprite(brickTypeToSpriteType(bt), x, y)
-				});
+				mBricks.emplace_back(
+#if __APPLE__
+					Brick{	// P0960 not implemented on Apple Clang, https://open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0960r3.html
+#endif
+						Rect{ x, y, x + settings::BrickWidth, y + settings::BrickHeight },
+						bt,
+						mWindow.createSprite(brickTypeToSpriteType(bt), x, y)
+#if __APPLE__
+					}
+#endif
+				);
 			}
 		}
 
 		~Grid() {
-			for (const auto& brick : mBricks) {
+			for (const auto& brick : mBricks)
 				mWindow.removeSprite(brick.spriteID);
-			}
 		}
 
 		bool empty() const {
@@ -74,7 +77,10 @@ namespace game {
 
 		std::optional<Brick> findBrick(Vector p) const {
 			auto it = std::ranges::find_if(mBricks,
-				[&](const Brick& b) { return inside(p, b.bounds); });
+				[&](const Brick& b) {
+					return inside(p, b.bounds);
+				}
+			);
 			if (it != std::end(mBricks)) {
 				return *it;
 			}

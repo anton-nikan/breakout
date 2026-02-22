@@ -1,0 +1,154 @@
+#pragma once
+
+#include "types.h"
+
+inside: (v: Vector, r: Rect) -> bool = {
+	return v.x > r.left && v.x <= r.right && v.y > r.top && v.y <= r.bottom;
+}
+
+reflectSymmetrical: (v: float, center: float) -> float = {
+	return 2.0f * center - v;
+}
+
+reflectOnceInside: (inout l: Segment, r: Rect) -> bool = {
+	if (l.ending.x < r.left && l.origin.x >= r.left) {
+		l.origin.x = reflectSymmetrical(l.origin.x, r.left);
+		l.ending.x = reflectSymmetrical(l.ending.x, r.left);
+		return true;
+	}
+
+	if (l.ending.x > r.right && l.origin.x <= r.right) {
+		l.origin.x = reflectSymmetrical(l.origin.x, r.right);
+		l.ending.x = reflectSymmetrical(l.ending.x, r.right);
+		return true;
+	}
+
+	if (l.ending.y < r.top && l.origin.y >= r.top) {
+		l.origin.y = reflectSymmetrical(l.origin.y, r.top);
+		l.ending.y = reflectSymmetrical(l.ending.y, r.top);
+		return true;
+	}
+
+	if (l.ending.y > r.bottom && l.origin.y <= r.bottom) {
+		l.origin.y = reflectSymmetrical(l.origin.y, r.bottom);
+		l.ending.y = reflectSymmetrical(l.ending.y, r.bottom);
+		return true;
+	}
+
+	return false;
+}
+
+// This assumes origin is inside, ending is outside
+reflectInside: (inout l: Segment, r: Rect) -> bool = {
+	reflected := false;
+	while (reflectOnceInside(l, r)) {
+		reflected = true;
+	}
+	return reflected;
+}
+
+// This assumes origin is outside, enging is inside
+reflectOutside: (inout l: Segment, r: Rect, out p: Vector) -> bool = {
+	// Left
+	if (l.ending.x > r.left && l.origin.x <= r.left && l.ending.y > r.top && l.ending.y <= r.bottom) {
+		p = ( r.left, (r.left - l.origin.x) * (l.ending.y - l.origin.y) / (l.ending.x - l.origin.x) + l.origin.y );
+		l.origin.x = reflectSymmetrical(l.origin.x, r.left);
+		l.ending.x = reflectSymmetrical(l.ending.x, r.left);
+		return true;
+	}
+
+	// Right
+	else if (l.ending.x < r.right && l.origin.x >= r.right && l.ending.y > r.top && l.ending.y <= r.bottom) {
+		p = ( r.right, (r.right - l.origin.x) * (l.ending.y - l.origin.y) / (l.ending.x - l.origin.x) + l.origin.y );
+		l.origin.x = reflectSymmetrical(l.origin.x, r.right);
+		l.ending.x = reflectSymmetrical(l.ending.x, r.right);
+		return true;
+	}
+
+	// Top
+	else if (l.ending.y > r.top && l.origin.y <= r.top && l.ending.x > r.left && l.ending.x <= r.right) { 
+		p = ( (r.top - l.origin.y) * (l.ending.x - l.origin.x) / (l.ending.y - l.origin.y) + l.origin.x, r.top );
+		l.origin.y = reflectSymmetrical(l.origin.y, r.top);
+		l.ending.y = reflectSymmetrical(l.ending.y, r.top);
+		return true;
+	}
+
+	// Bottom
+	else if (l.ending.y < r.bottom && l.origin.y >= r.bottom && l.ending.x > r.left && l.ending.x <= r.right) {
+		p = ( (r.bottom - l.origin.y) * (l.ending.x - l.origin.x) / (l.ending.y - l.origin.y) + l.origin.x, r.bottom );
+		l.origin.y = reflectSymmetrical(l.origin.y, r.bottom);
+		l.ending.y = reflectSymmetrical(l.ending.y, r.bottom);
+		return true;
+	}
+	else {
+		// TODO: redundant
+		p = Vector(0.0f, 0.0f);
+		return false;
+	}
+}
+
+reflect: (inout l: Segment, r: Rect) -> bool = {
+	originInside := inside(l.origin, r);
+	endingInside := inside(l.ending, r);
+	if (originInside && endingInside) {
+		return false;
+	}
+	else if (originInside && not endingInside) {
+		return reflectInside(l, r);
+	}
+	else if (not originInside && endingInside) {
+		p: Vector;
+		return reflectOutside(l, r, out p);
+	}
+	else { 
+		return false;
+	}
+}
+
+roundReflectionNormal: (point: Vector, rect: Rect) -> Vector = {
+	// -1 for the left side, 0 for the center, 1 for the right side
+	factor := 2.0f * (point.x - rect.left) / (rect.right - rect.left) - 1.0f;
+
+	// Lerp between {0, -1} and {1, 0}
+	result := Vector(
+		 0.0f + (1.0f - 0.0f) * factor,
+		-1.0f + (0.0f + 1.0f) * factor
+	);
+
+	return normalize(result);
+}
+
+reflectRound: (inout s: Segment, r: Rect) -> bool = {
+	originInside := inside(s.origin, r);
+	endingInside := inside(s.ending, r);
+	if (originInside || not endingInside) {
+		return false;
+	}
+
+	l := s;
+	p: Vector;
+	if not reflectOutside(l, r, out p) {
+		return false;
+	}
+	_ = l;
+
+	// General reflection: r = d - 2 (d dot n) n
+	n := roundReflectionNormal(p, r);
+	vs := Vector( s.ending.x - s.origin.x, s.ending.y - s.origin.y );
+	len := length(vs);
+	d := Vector( vs.x / len, vs.y / len );
+	dot := dotProduct(d, n);
+	refl := Vector(
+		d.x - 2.0f * dot * n.x,
+		d.y - 2.0f * dot * n.y
+	);
+
+	originScale := length(Vector( p.x - s.origin.x, p.y - s.origin.y ));
+	endingScale := length(Vector( s.ending.x - p.x, s.ending.y - p.y ));
+	s = Segment(
+		Vector( p.x - refl.x * originScale, p.y - refl.y * originScale ),
+		Vector( p.x + refl.x * endingScale, p.y + refl.y * endingScale ) 
+	);
+
+	return true;
+}

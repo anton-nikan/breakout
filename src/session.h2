@@ -1,0 +1,111 @@
+#pragma once
+
+#include <vector>
+#include <memory>
+#include <sdk/window.h>
+#include "format.h"
+#include "types.h"
+#include "settings.h"
+#include "levels.h"
+#include "grid.h"
+#include "round.h"
+
+game_: namespace = {
+	Session: type = {
+		mWindow: *SDK::Window;
+
+		mGrid: game::Grid;
+		
+		mRoundPtr: std::unique_ptr<game::Round>;
+		mLivesList: std::vector<game::PaddleView> = ();
+		mGameScore: int = 0;
+
+		mScoreText: SDK::TextID = SDK::InvalidText;
+
+		private makeNewRound: (inout this) -> std::unique_ptr<game::Round> =
+			std::make_unique<game::Round>(mWindow*, mGrid,
+				:(bt: levels::BrickType) =
+					mGameScore += settings::GameScorePerBrick;
+			);
+
+		operator=: (out this, inout wnd: *SDK::Window, in level: levels::GridDataType) = {
+		 	this.mWindow = wnd;
+		 	this.mGrid = (wnd*, level);
+		 	// this.mScoreText = mWindow->createText("Score: 000000", 20, settings::ScoreX, settings::ScoreY);
+		 	this.mRoundPtr = makeNewRound();
+
+			// normalPaddleWidth: float const = static_cast<float>(
+			// 	PaddleView::widthForSize(settings::PaddleSizeNormal));
+			// for (int i = 0; i < settings::GameNumLives; ++i) {
+			// 	mLivesList.emplace_back(mWindow, settings::PaddleSizeNormal,
+			// 		Vector{ settings::WindowWidth -
+			// 				(i + 0.5f) * (settings::LifePaddleGap + normalPaddleWidth),
+			// 			settings::LifePaddleY });
+			// }
+		}
+
+		operator=: (move this) =
+			mWindow*.removeText(mScoreText);
+    }
+}
+
+namespace game {
+	class Session {
+		SDK::Window& mWindow;
+
+		Grid mGrid;
+		std::unique_ptr<Round> mRoundPtr;
+		std::vector<PaddleView> mLivesList;
+		int mGameScore = 0;
+
+		SDK::TextID mScoreText = SDK::InvalidText;
+
+		std::unique_ptr<Round> makeNewRound() {
+			return std::make_unique<Round>(mWindow, mGrid,
+				[this](levels::BrickType bt) {
+				mGameScore += settings::GameScorePerBrick;
+			});
+		}
+	public:
+		Session(SDK::Window& wnd, levels::GridDataType const& level) :
+				mWindow{ wnd }, mGrid{ wnd, level } {
+			mScoreText = mWindow.createText("Score: 000000", 20, settings::ScoreX,
+				settings::ScoreY);
+			mRoundPtr = makeNewRound();
+
+			float const normalPaddleWidth = static_cast<float>(
+				PaddleView::widthForSize(settings::PaddleSizeNormal));
+			for (int i = 0; i < settings::GameNumLives; ++i) {
+				mLivesList.emplace_back(
+					&mWindow, settings::PaddleSizeNormal,
+					Vector{ static_cast<float>(settings::WindowWidth - (i + 0.5f) * (settings::LifePaddleGap + normalPaddleWidth)),	static_cast<float>(settings::LifePaddleY) }
+				);
+			}
+		}
+
+		~Session() { mWindow.removeText(mScoreText); }
+
+		enum class UpdateResult { GameContinues, GameOver, GameWon };
+		UpdateResult update() {
+			auto roundResult = mRoundPtr->update();
+			mWindow.updateText(mScoreText, std::format("Score: {:0>6}", mGameScore));
+
+			switch (roundResult) {
+				case Round::UpdateResult::Completed:
+					return UpdateResult::GameWon;
+				case Round::UpdateResult::Failed:
+					if (mLivesList.empty()) return UpdateResult::GameOver;
+
+					mLivesList.pop_back();
+					mRoundPtr = makeNewRound();
+					[[fallthrough]];
+				case Round::UpdateResult::Continue:
+					return UpdateResult::GameContinues;
+			}
+
+			// For whatever reason msvc complains here about not all control paths
+			// returning a value
+			return UpdateResult::GameContinues;
+		}
+	};
+}

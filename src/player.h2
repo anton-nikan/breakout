@@ -1,0 +1,24 @@
+#pragma once
+
+#include "levels.h"
+
+player: namespace = {
+	Progress: type = {
+		mLevel: int = 0;
+
+		getLevel: (this) -> int = mLevel;
+		
+		reset: (inout this) = 
+			mLevel = 0;
+
+		reachedMaxLevel: (this) -> bool =
+			mLevel >= cpp2::unsafe_narrow<int>(levels::GridData.size());
+
+		moveToNextLevel: (inout this) = {
+			mLevel++;
+			if reachedMaxLevel() {
+				reset();
+			}
+		}
+	}
+}

@@ -55,17 +55,14 @@ namespace game {
 		Vector mPosition;
 	public:
 		PlayingBallController(BallView& view, Vector pos, Vector velocity) :
-				mView{ view }, mPosition{ pos } {
-			mPrevPosition = { pos.x -
-					static_cast<float>(velocity.x * settings::SimulationTimeStep),
-				pos.y - static_cast<float>(velocity.y * settings::SimulationTimeStep) };
+				mView{ view }, mPrevPosition{ pos.x - static_cast<float>(velocity.x * settings::SimulationTimeStep), pos.y - static_cast<float>(velocity.y * settings::SimulationTimeStep) }, mPosition{ pos } {
 		}
 
 		BallView& getView() {
 			return mView;
 		}
 
-		const BallView& getView() const {
+		BallView const& getView() const {
 			return mView;
 		}
 

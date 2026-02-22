@@ -6,10 +6,11 @@ else
 end
 
 set_languages("c++23")
+add_requires("cppfront")
 
 includes("sdk")
 
-target("breakout")
+target("breakout-cppfront")
 
 set_kind("binary")
 add_includedirs("src", "sdk/include")
@@ -18,3 +19,4 @@ add_files(
 )
 
 add_deps("sdk")
+add_packages("cppfront")

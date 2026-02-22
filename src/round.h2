@@ -24,17 +24,14 @@ namespace game {
 		ScoreCallback mScoreCallback;
 
 		void updateActors() {
-			for (auto& paddle : mPaddles) {
+			for (auto& paddle : mPaddles)
 				paddle.update();
-			}
 
-			for (auto& controller : mStuckControllers) {
+			for (auto& controller : mStuckControllers)
 				controller.update();
-			}
 
-			for (auto& controller : mPlayingControllers) {
+			for (auto& controller : mPlayingControllers)
 				controller.update();
-			}
 		}
 
 		void handleInput() {
@@ -59,14 +56,14 @@ namespace game {
 				// 0. Simple loss check
 				if (ball.below(settings::GameAreaBottom)) {
 					mBalls.remove_if(
-						[&](const BallView& bv) { return &bv == &it->getView(); });
+						[&](BallView const& bv) { return &bv == &it->getView(); });
 					it = mPlayingControllers.erase(it);
 					continue;
 				}
 
 				// 1. Ball-Paddle collision
 				if (ball.below(settings::PaddleRoundStartY)) {
-					for (const auto& paddle : mPaddles) {
+					for (auto const& paddle : mPaddles) {
 						const Rect paddleRect = paddle.getRect();
 						if (ball.inside(paddleRect)) {
 							ball.reflectRound(paddleRect);
@@ -106,9 +103,7 @@ namespace game {
 			});
 		}
 
-		enum class UpdateResult { Continue,
-			Completed,
-			Failed };
+		enum class UpdateResult { Continue, Completed, Failed };
 		UpdateResult update() {
 			updateActors();
 			handleInput();

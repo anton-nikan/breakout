@@ -1,0 +1,70 @@
+#include <cassert>
+#include <string>
+
+#include <sdk/window.h>
+#include <sdk/input.h>
+
+#include "types.h"
+#include "settings.h"
+#include "levels.h"
+#include "player.h"
+#include "session.h"
+
+using namespace game;
+
+main: () -> int = {
+	playerProgress: player::Progress = ();
+	window := SDK::Window(settings::WindowWidth, settings::WindowHeight, "Craftout");
+	while window.isOpen() {
+		session := Session(window, levels::GridData[playerProgress.getLevel()]);
+
+		sessionResult := Session::UpdateResult::GameContinues;
+		lastTime := window.getSecondsSinceCreation();
+		while window.isOpen() && sessionResult == Session::UpdateResult::GameContinues {
+			// Locked step simulation
+			while window.getSecondsSinceCreation() - lastTime >= settings::SimulationTimeStep {
+				sessionResult = session.update();
+				if sessionResult == Session::UpdateResult::GameOver {
+					playerProgress.reset();
+				}
+				else if sessionResult == Session::UpdateResult::GameWon {
+					playerProgress.moveToNextLevel();
+				}
+				else { // Session::UpdateResult::GameContinues:
+				}
+
+				// BUG: playerProgress gets moved out on the last use above
+				_ = playerProgress;
+
+				if sessionResult != Session::UpdateResult::GameContinues {
+					break;
+				}
+
+				lastTime += settings::SimulationTimeStep;
+			}
+
+			window.draw();
+		}
+
+		// Session outcome for player to see
+		// TODO: ternary operator
+		outcomeText := :(x) -> std::string = { 
+			if x == Session::UpdateResult::GameOver { return "Game Over"; }
+			else { return "Level Completed"; }
+		}(sessionResult);
+		outcomeTextID: SDK::TextID = window.createText(outcomeText, 20,
+			0.5f * (settings::WindowWidth - 12 * outcomeText.size()),
+			0.5f * settings::WindowHeight);
+
+		while window.isOpen() {
+			window.draw();
+			if SDK::isButtonPressed(SDK::Button::Fire) {
+				break;
+			}
+		}
+		window.removeText(outcomeTextID);
+	}
+
+	assert(window.countValidSprites() == 0);
+	assert(window.countValidTexts() == 0);
+}
