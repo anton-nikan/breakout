@@ -81,10 +81,11 @@ namespace game {
 				}
 
 				// 3. Ball-Wall collision
-				const Rect gameArea{ .left = settings::GameAreaLeft,
-					.top = settings::GameAreaTop,
-					.right = settings::GameAreaRight,
-					.bottom = settings::GameAreaBottom };
+				const Rect gameArea{
+					static_cast<float>(settings::GameAreaLeft),
+					static_cast<float>(settings::GameAreaTop),
+					static_cast<float>(settings::GameAreaRight),
+					static_cast<float>(settings::GameAreaBottom) };
 				ball.reflect(gameArea);
 
 				++it;
@@ -94,7 +95,8 @@ namespace game {
 		Round(SDK::Window& wnd, Grid& grid, ScoreCallback scoreCallback) :
 				mWindow{ wnd }, mGrid{ grid }, mScoreCallback{ scoreCallback } {
 			auto& paddle = mPaddles.emplace_back(mWindow, settings::PaddleSizeNormal,
-				Vector{ settings::PaddleRoundStartX, settings::PaddleRoundStartY });
+				Vector{ static_cast<float>(settings::PaddleRoundStartX),
+					static_cast<float>(settings::PaddleRoundStartY) });
 
 			mBalls.emplace_back(mWindow);
 			mStuckControllers.emplace_back(mBalls.front(), [&]() {

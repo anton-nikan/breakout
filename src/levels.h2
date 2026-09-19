@@ -1,6 +1,20 @@
 #include <array>
 #include <string_view>
+#include <utility>
 #include "settings.h"
+
+template <typename T, std::size_t N, std::size_t... I>
+constexpr std::array<T, N> filledArrayImpl(T value, std::index_sequence<I...>) {
+	return { ((void)I, value)... };
+}
+
+// std::array's aggregate init can't fill omitted elements when T has an
+// explicit default constructor (as generated types do), so build the
+// fully-filled array explicitly instead.
+template <typename T, std::size_t N>
+constexpr std::array<T, N> filledArray(T value) {
+	return filledArrayImpl<T, N>(value, std::make_index_sequence<N>{});
+}
 
 levels: namespace = {
 	BrickType: @enum<char> type = {
@@ -17,7 +31,7 @@ levels: namespace = {
 	GridDataType: type == std::array<BrickType, settings::GridWidth * settings::GridHeight>;
 
 	make_grid: (s: std::string_view) -> GridDataType == {
-		r:GridDataType = ( BrickType::Empty );
+		r: GridDataType = filledArray<BrickType, settings::GridWidth * settings::GridHeight>(BrickType::Empty);
 
 		i := 0;
 		for s

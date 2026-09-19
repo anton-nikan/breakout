@@ -12,7 +12,7 @@ player: namespace = {
 			mLevel = 0;
 
 		reachedMaxLevel: (this) -> bool =
-			mLevel >= cpp2::unsafe_narrow<int>(levels::GridData.size());
+			mLevel >= cpp2::unchecked_narrow<int>(levels::GridData.size());
 
 		moveToNextLevel: (inout this) = {
 			mLevel++;
